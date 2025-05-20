@@ -64,8 +64,16 @@
       $expression = $_POST['expression'] ?? '';
       // Sanitize expression: allow only digits, decimal point, operators + - * / % and spaces
       if (preg_match('/^[0-9+\-*\/%.\s]+$/', $expression)) {
-        // Replace % with /100 for correct evaluation
-        $expr_for_eval = str_replace('%', '/100', $expression);
+        // Handle "A % B" expressions first
+        $expr_for_eval = preg_replace_callback(
+          '/(\d+\.?\d*)\s*%\s*(\d+\.?\d*)/',
+          function($matches) {
+            return '(' . $matches[1] . '/100*' . $matches[2] . ')';
+          },
+          $expression
+        );
+        // Handle standalone "X%" expressions
+        $expr_for_eval = str_replace('%', '/100', $expr_for_eval);
         try {
           $clean_expr = preg_replace('/\s+/', '', $expr_for_eval);
           $calc_res = null;
@@ -74,6 +82,7 @@
             $error = "Expresión inválida o resultado no numérico.";
           } else {
             $resultDecimal = floatval($calc_res);
+            $expression = ''; // Clear expression after successful calculation
           }
         } catch (Throwable $e) {
           $error = "Error evaluando la expresión.";
